@@ -1,4 +1,5 @@
 <?php
+
 namespace Blossom\BackendDeveloperTest;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -17,8 +18,13 @@ use EncodingStub\Client as EncodingClient;
  * The only requirement is existence of public function `handleRequest()`
  * as this is what is tested. The constructor's signature must not be changed.
  */
-class Application
+class Application implements ApplicationInterface
 {
+    /**
+     * Configuration Array
+     *
+     * @var array
+     */
     protected $config;   
     
     /**
@@ -45,59 +51,71 @@ class Application
      */
     public function handleRequest(Request $request): Response
     {
-        // Return empty Response if not a POST request
+        // Return HTTP_METHOD_NOT_ALLOWED if not a POST request
         if (! $request->isMethod('POST')) {
             
             return $this->generateResponse('Not a POST method.', Response::HTTP_METHOD_NOT_ALLOWED);
             
         }
         
+        // Return HTTP_BAD_REQUEST if no file sent
         if (! $request->files->get('file')) {
             
             return $this->generateResponse('No uploaded file.', Response::HTTP_BAD_REQUEST);
 
         }
         
+        // Return HTTP_BAD_REQUEST if no upload parameters
         if (! $request->request->has('upload')) {
             
             return $this->generateResponse('No upload parameters.', Response::HTTP_BAD_REQUEST);
             
         }
         
+        // Get upload and formats parameters from POST
         $upload = $request->request->get('upload');
         $formats = $request->request->get('formats');
         
+        // Check if upload is proper type
         if (! in_array($upload, ['dropbox', 's3', 'ftp'])) {
 
             return $this->generateResponse('Unkown upload.', Response::HTTP_BAD_REQUEST);
 
         }
         
+        // Check if formats are proper types
         if (! empty($formats) && count(array_intersect($formats, ['mp4', 'webm', 'ogv'])) === 0) {
 
             return $this->generateResponse('Unkown format.', Response::HTTP_BAD_REQUEST);
 
         }
         
+        // Get file
         $file = $request->files->get('file');
 
         $returnData = [];
+        
+        // Upload file
         $returnData['url'] = $this->manageUpload($upload, $file);
-        $returnData['formats'] = $this->convertFileAndUpload($file, $formats, $upload);
+        
+        // Convert files and upload (if needed)
+        $returnData['formats'] = $this->convertFilesAndUpload($file, $formats, $upload); 
 
+        // Return Response
         return $this->generateResponse('OK.', Response::HTTP_OK, $returnData);
     }
     
     /**
-     * Convert File And Upload (possibly)
+     * Convert Files And Upload (possibly)
      *
      * @param string $file 
      * @param array $toFormats 
      * @param string $upload 
      * @return array
      */
-    protected function convertFileAndUpload($file, array $toFormats, string $upload)
+    protected function convertFilesAndUpload($file, array $toFormats, string $upload)
     {
+        // Return empty array if no formats to convert to
         if (empty($toFormats)) {
             
             return [];
@@ -105,6 +123,7 @@ class Application
         
         $encodedFiles = [];
         
+        // Foreach format encode and add to array
         foreach ($toFormats as $format) {
             if ($file->getExtension() !== $format) {
                 $client = new EncodingClient(
@@ -153,12 +172,10 @@ class Application
                     $this->config['ftp']['destination']                                        
                 );   
                 
-                // @todo add if response ...
-                
-                return sprintf('ftp://%s/%s/%s', $this->config['ftp']['hostname'], $this->config['ftp']['destination'], $file->getClientOriginalName());            
+                return $response ? sprintf('ftp://%s/%s/%s', $this->config['ftp']['hostname'], $this->config['ftp']['destination'], $file->getClientOriginalName()) : '';            
             
             default:
-                # THROW ERROR
+                # THROW ERROR POSSIBLY
         }
     }
     
