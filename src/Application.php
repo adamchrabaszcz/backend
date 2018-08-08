@@ -8,6 +8,8 @@ use DropboxStub\DropboxClient;
 use FTPStub\FTPUploader;
 use S3Stub\Client as S3Client;
 use S3Stub\FileObject;
+use FFMPEGStub\FFMPEG;
+use EncodingStub\Client as EncodingClient;
 
 /**
  * You should implement this class however you want.
@@ -17,8 +19,7 @@ use S3Stub\FileObject;
  */
 class Application
 {
-    protected $config;
-    
+    protected $config;   
     
     /**
      * By default the constructor takes a single argument which is a config array.
@@ -72,7 +73,7 @@ class Application
 
         }
         
-        if (! empty($formats) && ! in_array($formats, ['mp4', 'webm', 'ogv'])) {
+        if (! empty($formats) && count(array_intersect($formats, ['mp4', 'webm', 'ogv'])) === 0) {
 
             return $this->generateResponse('Unkown format.', Response::HTTP_BAD_REQUEST);
 
@@ -82,10 +83,43 @@ class Application
 
         $returnData = [];
         $returnData['url'] = $this->manageUpload($upload, $file);
+        $returnData['formats'] = $this->convertFileAndUpload($file, $formats, $upload);
 
         return $this->generateResponse('OK.', Response::HTTP_OK, $returnData);
+    }
+    
+    /**
+     * Convert File And Upload (possibly)
+     *
+     * @param string $file 
+     * @param array $toFormats 
+     * @param string $upload 
+     * @return array
+     */
+    protected function convertFileAndUpload($file, array $toFormats, string $upload)
+    {
+        if (empty($toFormats)) {
+            
+            return [];
+        }
         
-        return $response;
+        $encodedFiles = [];
+        
+        foreach ($toFormats as $format) {
+            if ($file->getExtension() !== $format) {
+                $client = new EncodingClient(
+                    $this->config['encoding.com']['app_id'],
+                    $this->config['encoding.com']['access_token']                    
+                );
+                $encodedFiles[$format] = $client->encodeFile($file, $format);
+            } else {
+                $client = new FFMPEG();
+                $convertedFile = $client->convert($file);
+                $encodedFiles[$format] = $this->manageUpload($upload, $convertedFile);
+            }            
+        }
+        
+        return $encodedFiles;
     }
     
     /**
