@@ -151,32 +151,10 @@ class Application implements ApplicationInterface
      */
     protected function manageUpload(string $upload, \SplFileInfo $file) : string
     {
-        switch ($upload) {
-            case 'dropbox':
-                $client = new DropboxClient($this->config['dropbox']['access_key'], $this->config['dropbox']['secret_token'], $this->config['dropbox']['container']);                                       
-                return $client->upload($file);
-                
-            case 's3':
-                $client = new S3Client($this->config['s3']['access_key_id'], $this->config['s3']['secret_access_key']);                                       
-                $response = $client->send($file, $this->config['s3']['bucketname']);  
-
-                return $response->getPublicUrl();
-                
-            case 'ftp':
-                $client = new FTPUploader();                                       
-                $response = $client->uploadFile(
-                    $file, 
-                    $this->config['ftp']['hostname'], 
-                    $this->config['ftp']['username'],
-                    $this->config['ftp']['password'],
-                    $this->config['ftp']['destination']                                        
-                );   
-                
-                return $response ? sprintf('ftp://%s/%s/%s', $this->config['ftp']['hostname'], $this->config['ftp']['destination'], $file->getClientOriginalName()) : '';            
-            
-            default:
-                # THROW ERROR POSSIBLY
-        }
+        $client = UploadClientFactory::createFromConfigAndUploadAndFile($this->config, $upload, $file);
+        
+        return $client->upload();
+        
     }
     
     /**
