@@ -44,48 +44,71 @@ class Application
      */
     public function handleRequest(Request $request): Response
     {
-        $upload = $request->request->get('upload');
-        $format = $request->request->get('format');
+        // Return empty Response if not a POST request
+        if (! $request->isMethod('POST')) {
+            return new Response();
+        }
+        
+        $upload = $request->request->has('upload') ? $request->request->get('upload') : 'dropbox';
+        $format = $request->request->has('format') ? $request->request->get('format') : 'mp4';
+        
+        if (! $request->files->get('file')) {
+            
+            // throw error 400 instead
+            $badResponse =  new Response();
+            $badResponse->setStatusCode(400);
+            return $badResponse;
+        }
+        
         $file = $request->files->get('file');
+
+        $returnData = [];
+        $returnData['url'] = $this->manageUpload($upload, $file);
+
+        $response = new Response(json_encode($returnData));
+        $response->setCharset('UTF-8');
+        $response->headers->set('Content-Type', 'application/json');
         
-        $uploadResponse = '';
-        
+        return $response;
+    }
+    
+    /**
+     * Upload method
+     *
+     * @param string $upload 
+     * @param SplFileInfo $file 
+     * @return string
+     * @todo check return type, convert to UploadManager
+     */
+    protected function manageUpload(string $upload, $file)
+    {
         switch ($upload) {
             case 'dropbox':
                 $client = new DropboxClient($this->config['dropbox']['access_key'], $this->config['dropbox']['secret_token'], $this->config['dropbox']['container']);                                       
-                $uploadResponse = $client->upload($file);                 
-                break;
+                return $client->upload($file);
                 
             case 's3':
                 $client = new S3Client($this->config['s3']['access_key_id'], $this->config['s3']['secret_access_key']);                                       
-                $uploadResponse = $client->send($file, $this->config['s3']['bucketname']);                 
-                break;    
+                $response = $client->send($file, $this->config['s3']['bucketname']);  
+
+                return $response->getPublicUrl();
                 
             case 'ftp':
                 $client = new FTPUploader();                                       
-                $uploadResponse = $client->uploadFile(
+                $response = $client->uploadFile(
                     $file, 
                     $this->config['ftp']['hostname'], 
                     $this->config['ftp']['username'],
                     $this->config['ftp']['password'],
                     $this->config['ftp']['destination']                                        
-                );                 
-                break;                                
+                );   
+                
+                // @todo add if response ...
+                
+                return sprintf('ftp://%s/%s/%s', $this->config['ftp']['hostname'], $this->config['ftp']['destination'], $file->getClientOriginalName());            
             
             default:
                 # THROW ERROR
-                break;
         }
-        
-        echo '<pre>';
-        print_r($uploadResponse);
-        echo '</pre>';
-
-
-
-        $response = new Response();
-        $response->setCharset('UTF-8');
-        
-        return $response;
     }
 }
