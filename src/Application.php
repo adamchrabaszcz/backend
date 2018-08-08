@@ -108,12 +108,12 @@ class Application implements ApplicationInterface
     /**
      * Convert Files And Upload (possibly)
      *
-     * @param string $file 
+     * @param \SplFileInfo $file 
      * @param array $toFormats 
      * @param string $upload 
      * @return array
      */
-    protected function convertFilesAndUpload($file, array $toFormats, string $upload)
+    protected function convertFilesAndUpload(\SplFileInfo $file, array $toFormats, string $upload) : array
     {
         // Return empty array if no formats to convert to
         if (empty($toFormats)) {
@@ -145,11 +145,11 @@ class Application implements ApplicationInterface
      * Upload method
      *
      * @param string $upload 
-     * @param SplFileInfo $file 
+     * @param \SplFileInfo $file 
      * @return string
      * @todo check return type, convert to UploadManager
      */
-    protected function manageUpload(string $upload, $file)
+    protected function manageUpload(string $upload, \SplFileInfo $file) : string
     {
         switch ($upload) {
             case 'dropbox':
@@ -187,7 +187,7 @@ class Application implements ApplicationInterface
      * @param array $content 
      * @return Response
      */
-    protected function generateResponse(string $message, int $code, array $content = [])
+    protected function generateResponse(string $message, int $code, array $content = []) : Response
     {
         $response =  new Response(json_encode($content));
         $response->setStatusCode($code);
