@@ -46,18 +46,36 @@ class Application
     {
         // Return empty Response if not a POST request
         if (! $request->isMethod('POST')) {
-            return new Response();
+            
+            return $this->generateResponse('Not a POST method.', Response::HTTP_METHOD_NOT_ALLOWED);
+            
         }
-        
-        $upload = $request->request->has('upload') ? $request->request->get('upload') : 'dropbox';
-        $format = $request->request->has('format') ? $request->request->get('format') : 'mp4';
         
         if (! $request->files->get('file')) {
             
-            // throw error 400 instead
-            $badResponse =  new Response();
-            $badResponse->setStatusCode(400);
-            return $badResponse;
+            return $this->generateResponse('No uploaded file.', Response::HTTP_BAD_REQUEST);
+
+        }
+        
+        if (! $request->request->has('upload')) {
+            
+            return $this->generateResponse('No upload parameters.', Response::HTTP_BAD_REQUEST);
+            
+        }
+        
+        $upload = $request->request->get('upload');
+        $formats = $request->request->get('formats');
+        
+        if (! in_array($upload, ['dropbox', 's3', 'ftp'])) {
+
+            return $this->generateResponse('Unkown upload.', Response::HTTP_BAD_REQUEST);
+
+        }
+        
+        if (! empty($formats) && ! in_array($formats, ['mp4', 'webm', 'ogv'])) {
+
+            return $this->generateResponse('Unkown format.', Response::HTTP_BAD_REQUEST);
+
         }
         
         $file = $request->files->get('file');
@@ -65,9 +83,7 @@ class Application
         $returnData = [];
         $returnData['url'] = $this->manageUpload($upload, $file);
 
-        $response = new Response(json_encode($returnData));
-        $response->setCharset('UTF-8');
-        $response->headers->set('Content-Type', 'application/json');
+        return $this->generateResponse('OK.', Response::HTTP_OK, $returnData);
         
         return $response;
     }
@@ -110,5 +126,23 @@ class Application
             default:
                 # THROW ERROR
         }
+    }
+    
+    /**
+     * Generate Response
+     *
+     * @param string $message 
+     * @param int $code 
+     * @param array $content 
+     * @return Response
+     */
+    protected function generateResponse(string $message, int $code, array $content = [])
+    {
+        $response =  new Response(json_encode($content));
+        $response->setStatusCode($code);
+        $response->setCharset('UTF-8');
+        $response->headers->set('Content-Type', 'application/json');   
+             
+        return $response;
     }
 }
