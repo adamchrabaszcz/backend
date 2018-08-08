@@ -51,6 +51,38 @@ class Application implements ApplicationInterface
      */
     public function handleRequest(Request $request): Response
     {
+        // Check if Request is invalid and return if so
+        if ($invalidRequestResponse = $this->isInvalidRequest($request)) {
+            return $invalidRequestResponse;
+        }
+        
+        // Get upload and formats parameters from POST
+        $upload = $request->request->get('upload');
+        $formats = $request->request->get('formats');
+        
+        // Get file
+        $file = $request->files->get('file');
+
+        $returnData = [];
+        
+        // Upload file
+        $returnData['url'] = $this->manageUpload($upload, $file);
+        
+        // Convert files and upload (if needed)
+        $returnData['formats'] = $this->convertFilesAndUpload($file, $formats, $upload); 
+
+        // Return Response
+        return $this->generateResponse('OK.', Response::HTTP_OK, $returnData);
+    }
+    
+    /**
+     * Check if Request is invalid
+     *
+     * @param Request $request 
+     * @return Response | null
+     */
+    protected function isInvalidRequest(Request $request) : ?Response
+    {
         // Return HTTP_METHOD_NOT_ALLOWED if not a POST request
         if (! $request->isMethod('POST')) {
             
@@ -72,37 +104,21 @@ class Application implements ApplicationInterface
             
         }
         
-        // Get upload and formats parameters from POST
-        $upload = $request->request->get('upload');
-        $formats = $request->request->get('formats');
-        
         // Check if upload is proper type
-        if (! in_array($upload, ['dropbox', 's3', 'ftp'])) {
+        if (! in_array($request->request->get('upload'), ['dropbox', 's3', 'ftp'])) {
 
             return $this->generateResponse('Unkown upload.', Response::HTTP_BAD_REQUEST);
 
         }
         
         // Check if formats are proper types
-        if (! empty($formats) && count(array_intersect($formats, ['mp4', 'webm', 'ogv'])) === 0) {
+        if (! empty($request->request->get('formats')) && count(array_intersect($request->request->get('formats'), ['mp4', 'webm', 'ogv'])) === 0) {
 
             return $this->generateResponse('Unkown format.', Response::HTTP_BAD_REQUEST);
 
         }
         
-        // Get file
-        $file = $request->files->get('file');
-
-        $returnData = [];
-        
-        // Upload file
-        $returnData['url'] = $this->manageUpload($upload, $file);
-        
-        // Convert files and upload (if needed)
-        $returnData['formats'] = $this->convertFilesAndUpload($file, $formats, $upload); 
-
-        // Return Response
-        return $this->generateResponse('OK.', Response::HTTP_OK, $returnData);
+        return null;
     }
     
     /**
@@ -125,12 +141,14 @@ class Application implements ApplicationInterface
         
         // Foreach format encode and add to array
         foreach ($toFormats as $format) {
+            // If extension different than mp4, then Encode
             if ($file->getExtension() !== $format) {
                 $client = new EncodingClient(
                     $this->config['encoding.com']['app_id'],
                     $this->config['encoding.com']['access_token']                    
                 );
                 $encodedFiles[$format] = $client->encodeFile($file, $format);
+            // Else Convert and upload
             } else {
                 $client = new FFMPEG();
                 $convertedFile = $client->convert($file);
@@ -147,7 +165,6 @@ class Application implements ApplicationInterface
      * @param string $upload 
      * @param \SplFileInfo $file 
      * @return string
-     * @todo check return type, convert to UploadManager
      */
     protected function manageUpload(string $upload, \SplFileInfo $file) : string
     {

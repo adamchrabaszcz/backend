@@ -48,7 +48,42 @@ class ApplicationTest extends TestCase
      * WRITE YOUR OWN TESTS HERE
      ************************************/
 
+    public function testUploadingToS3AndEncodingToOgv()
+    {
+        $app = $this->provideApplication();
 
+        $request = Request::create('/', 'POST', [
+            'upload' => 's3',
+            'formats' => ['ogv']
+        ], [], [
+            'file' => $this->provideUploadedFile('TechnologyRace.mp4')
+        ]);
+
+        $response = $app->handleRequest($request);
+
+        $data = $this->validateResponse($response, true);
+
+        $this->assertContains('http://blossom-uploads.s3.amazonaws.com/TechnologyRace.mp4', $data['url']);
+        $this->assertEquals('http://encoding.com/results/blossom-fgdfgg87gf7d/TechnologyRace_mp4.ogv', $data['formats']['ogv']);
+    }
+    
+    public function testReturns400ForWrongUploadType()
+    {
+        $app = $this->provideApplication();
+
+        $request = Request::create('/', 'POST', [
+            'upload' => ['s3', 'dropbox'],
+            'formats' => ['ogv']
+        ], [], [
+            'file' => $this->provideUploadedFile('TechnologyRace.mp4')
+        ]);
+
+        $response = $app->handleRequest($request);
+
+        $this->assertInstanceOf(Response::class, $response, 'Application should always return Response object');
+
+        $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode(), 'Wrong upload type requests should return HTTP Code 400 in the response.');
+    }
 
     /************************************
      * DO NOT CHANGE ANYTHING BELOW
