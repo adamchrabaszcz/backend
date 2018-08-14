@@ -66,9 +66,11 @@ class Application implements ApplicationInterface
         $returnData = [];
         
         // Upload file
+        // @TODO use UploadManader
         $returnData['url'] = $this->manageUpload($upload, $file);
         
         // Convert files and upload (if needed)
+        // @TODO use EncoderConverterPicker
         $returnData['formats'] = $this->convertFilesAndUpload($file, $formats, $upload); 
 
         // Return Response
@@ -80,6 +82,7 @@ class Application implements ApplicationInterface
      *
      * @param Request $request 
      * @return Response | null
+     * @todo move logic from this method to RequestChecker class
      */
     protected function isInvalidRequest(Request $request) : ?Response
     {
@@ -128,6 +131,7 @@ class Application implements ApplicationInterface
      * @param array $toFormats 
      * @param string $upload 
      * @return array
+     * @todo move logic from this method into FileEncoder class & FileConverter class & EncoderConverterPicker (name to be changed)
      */
     protected function convertFilesAndUpload(\SplFileInfo $file, array $toFormats, string $upload) : array
     {
@@ -165,6 +169,7 @@ class Application implements ApplicationInterface
      * @param string $upload 
      * @param \SplFileInfo $file 
      * @return string
+     * @todo move logic from this method into UploadManager
      */
     protected function manageUpload(string $upload, \SplFileInfo $file) : string
     {
